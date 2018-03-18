@@ -19,6 +19,7 @@ var inShutdownMode bool = false
 var handlingAHashRequest bool = false
 var hashId uint64 = 0
 
+// TODO gofmt
 
 func main() {
 
@@ -27,6 +28,12 @@ func main() {
 
 	go checkForShutdownAndExit()
 	log.Fatal(http.ListenAndServe(":80", nil))
+}
+
+func resetVariablesToStartingValues() { // TODO hack
+	inShutdownMode = false
+	handlingAHashRequest = false
+	hashId = 0
 }
 
 func checkForShutdownAndExit() { 
