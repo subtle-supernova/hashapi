@@ -1,6 +1,7 @@
 package main
 
 import "testing"
+import "time"
 
 
 func TestHash(t *testing.T) {
@@ -8,6 +9,15 @@ func TestHash(t *testing.T) {
     hash := hash("angryMonkey")
     if hash != expected_hash {
        t.Errorf("Hash was incorrect, got: %s, want: %s.", hash, expected_hash)
+    }
+}
+
+func TestSleepTimeSeconds(t *testing.T) {
+
+    expected_val := time.Duration(5)
+    val := sleepTimeSeconds()
+    if val != expected_val {
+       t.Errorf("Val was incorrect, got: %s, want: %s.", val, expected_val)
     }
 }
 
