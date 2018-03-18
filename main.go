@@ -15,6 +15,7 @@ const HASH_ENDPOINT_NAME = "/hash"
 const SHUTDOWN_ENDPOINT_NAME = "/shutdown"
 
 var inShutdownMode bool = false
+var handlingAHashRequest bool = false
 func main() {
 
 	http.HandleFunc(HASH_ENDPOINT_NAME, hash)
@@ -24,11 +25,13 @@ func main() {
 	log.Fatal(http.ListenAndServe(":80", nil))
 }
 
-func checkForShutdownAndExit() { //TODO exit right away if no hash function is running
+func checkForShutdownAndExit() { 
 	for {
 		time.Sleep(1 * time.Second)
 		if(inShutdownMode) {
-			time.Sleep(sleepTimeSeconds() * time.Second)
+			if (handlingAHashRequest) {
+				time.Sleep(sleepTimeSeconds() * time.Second)
+			}
 			os.Exit(0)
 		}
 	}
@@ -40,6 +43,7 @@ func registerShutdown(w http.ResponseWriter, r *http.Request) {
 }
 
 func hash(w http.ResponseWriter, r *http.Request) {
+	handlingAHashRequest = true
 	if (inShutdownMode) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
@@ -50,6 +54,7 @@ func hash(w http.ResponseWriter, r *http.Request) {
 
 	time.Sleep(sleepTimeSeconds() * time.Second)
 	fmt.Fprintf(w, hashPassword(password))
+	handlingAHashRequest = false
 }
 
 func hashPassword(passwd string) string {
