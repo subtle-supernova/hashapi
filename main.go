@@ -7,6 +7,7 @@ import "log"
 import "net/http"
 import "time"
 import "os"
+import "sync/atomic"
 
 const TIME_TO_SLEEP = 5 //TODO change to 5
 const PASSWORD_PARAM_NAME = "password"
@@ -16,6 +17,9 @@ const SHUTDOWN_ENDPOINT_NAME = "/shutdown"
 
 var inShutdownMode bool = false
 var handlingAHashRequest bool = false
+var hashId uint64 = 0
+
+
 func main() {
 
 	http.HandleFunc(HASH_ENDPOINT_NAME, hash)
@@ -44,13 +48,19 @@ func registerShutdown(w http.ResponseWriter, r *http.Request) {
 
 func hash(w http.ResponseWriter, r *http.Request) {
 	handlingAHashRequest = true
+
 	if (inShutdownMode) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
+
+	atomic.AddUint64(&hashId, 1)
+	fmt.Fprintln(w, hashId)
+	w.(http.Flusher).Flush()
+
 	r.ParseForm()
 	password := r.FormValue(PASSWORD_PARAM_NAME)
-	// fmt.Fprintln(w, password)
+	// TODO what if we don't see password?
 
 	time.Sleep(sleepTimeSeconds() * time.Second)
 	fmt.Fprintf(w, hashPassword(password))
