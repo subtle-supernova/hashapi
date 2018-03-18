@@ -6,7 +6,6 @@ import "strings"
 import "net/http"
 import "net/http/httptest"
 
-// TODO gofmt
 
 func TestHashPassword(t *testing.T) {
 	expectedHash := "ZEHhWB65gUlzdVwtDQArEyx+KVLzp/aTaRaPlBzYRIFj6vjFdqEb0Q5B8zVKCZ0vKbZPZklJz0Fd7su2A+gf7Q=="
@@ -20,6 +19,30 @@ func TestSleepTimeSeconds(t *testing.T) {
 
 	expectedVal := time.Duration(5)
 	val := sleepTimeSeconds()
+	if val != expectedVal {
+		t.Errorf("Val was incorrect, got: %s, want: %s.", val, expectedVal)
+	}
+}
+
+func TestGetIdFromPathWithVal(t *testing.T) {
+
+	expectedVal := 100
+	val := getIdPointerFromPath("/hash/100")
+	if val == (*int)(nil) {
+		t.Errorf("Val was incorrect, got: nil, want: %s.", expectedVal)
+		return
+	}
+
+	dereferencedVal := *val
+	if dereferencedVal != expectedVal {
+		t.Errorf("Val was incorrect, got: %s, want: %s.", dereferencedVal, expectedVal)
+	}
+}
+
+func TestGetIdFromPathWithNoVal(t *testing.T) {
+
+	expectedVal := (*int)(nil)
+	val := getIdPointerFromPath("/hash")
 	if val != expectedVal {
 		t.Errorf("Val was incorrect, got: %s, want: %s.", val, expectedVal)
 	}
@@ -95,6 +118,55 @@ func TestHashAfterShutdown(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 
 	expectedVal := http.StatusServiceUnavailable
+	if status := rr.Code; status != expectedVal {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, expectedVal)
+	}
+
+}
+
+func TestHashWithRequestIdNotAlreadySet(t *testing.T) {
+	resetVariablesToStartingValues()
+	req, err := http.NewRequest("POST", "/hash/100", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(hash)
+
+	handler.ServeHTTP(rr, req)
+
+	expectedVal := http.StatusNotFound
+	if status := rr.Code; status != expectedVal {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, expectedVal)
+	}
+
+}
+
+func TestHashWithRequestIdAlreadySet(t *testing.T) {
+	resetVariablesToStartingValues()
+	initialreq, err := http.NewRequest("POST", "/hash", strings.NewReader("password=angryMonkey"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest("GET", "/hash/1", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	initialhandler := http.HandlerFunc(hash)
+
+	initialhandler.ServeHTTP(rr, initialreq)
+
+	handler := http.HandlerFunc(hash)
+
+	handler.ServeHTTP(rr, req)
+
+	expectedVal := http.StatusOK
 	if status := rr.Code; status != expectedVal {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, expectedVal)
