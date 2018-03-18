@@ -36,18 +36,17 @@ func resetVariablesToStartingValues() { // TODO hack
 	hashId = 0
 }
 
-func checkForShutdownAndExit() { 
+func checkForShutdownAndExit() {
 	for {
 		time.Sleep(1 * time.Second)
-		if(inShutdownMode) {
-			if (handlingAHashRequest) {
+		if inShutdownMode {
+			if handlingAHashRequest {
 				time.Sleep(sleepTimeSeconds() * time.Second)
 			}
 			os.Exit(0)
 		}
 	}
 }
-
 
 func registerShutdown(w http.ResponseWriter, r *http.Request) {
 	inShutdownMode = newShutdownValue()
@@ -56,7 +55,7 @@ func registerShutdown(w http.ResponseWriter, r *http.Request) {
 func hash(w http.ResponseWriter, r *http.Request) {
 	handlingAHashRequest = true
 
-	if (inShutdownMode) {
+	if inShutdownMode {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
