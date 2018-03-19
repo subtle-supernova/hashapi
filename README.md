@@ -3,7 +3,7 @@
 
 ## Purpose
 
-This is a go server that will hash a password using SHA 256.
+This is a go server that will hash a password using SHA 512.
 
 ## Startup
 
