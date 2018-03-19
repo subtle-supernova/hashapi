@@ -102,6 +102,8 @@ func hash(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// TODO for the same password value we give different ids.
+
 	atomic.AddInt32(&hashId, 1)
 	fmt.Fprintln(w, hashId)
 	w.(http.Flusher).Flush()
