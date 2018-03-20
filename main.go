@@ -39,43 +39,12 @@ func main() {
 	log.Fatal(http.ListenAndServe(":80", nil))
 }
 
-func checkForShutdownAndExit() {
-	for {
-		time.Sleep(SHUTDOWN_WAIT_CHECK * time.Second)
-		if inShutdownMode {
-			time.Sleep(sleepTimeSeconds() * time.Second)
-			os.Exit(CLEAN_SHUTDOWN_CODE)
-		}
-	}
-}
-
 func statisticsGet(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, stats.statsOutput())
 }
 
 func registerShutdown(w http.ResponseWriter, r *http.Request) {
 	inShutdownMode = true
-}
-
-func getIdPointerFromPath(path string) *int {
-	pathWithoutHash := strings.Replace(path, HASH_WITH_SLASH_ENDPOINT_NAME, "", 1)
-	i, err := strconv.Atoi(pathWithoutHash)
-	if err == nil {
-		return &i
-	}
-
-	return (*int)(nil)
-}
-
-func hashFromId(w http.ResponseWriter, id int) {
-	passwordStruct := createdPasswords[id]
-	if passwordStruct.Id == 0 {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	} else {
-		fmt.Fprintf(w, passwordStruct.PasswordHash)
-		return
-	}
 }
 
 func hash(w http.ResponseWriter, r *http.Request) {
@@ -103,8 +72,15 @@ func hash(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func badRequestResponse(w http.ResponseWriter) {
-	w.WriteHeader(http.StatusBadRequest)
+func hashFromId(w http.ResponseWriter, id int) {
+	passwordStruct := createdPasswords[id]
+	if passwordStruct.Id == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	} else {
+		fmt.Fprintf(w, passwordStruct.PasswordHash)
+		return
+	}
 }
 
 func hashIdAndCreate(startNanos int64, w http.ResponseWriter, r *http.Request) {
@@ -123,8 +99,8 @@ func hashIdAndCreate(startNanos int64, w http.ResponseWriter, r *http.Request) {
 }
 
 func hashCreate(startNanos int64, id int32, password string) {
-
 	time.Sleep(sleepTimeSeconds() * time.Second)
+
 	passwordObj := *new(Password)
 	passwordObj.hashPassword(password)
 	passwordObj.Id = int(hashId)
@@ -141,6 +117,30 @@ func captureStatistics(startNanos int64) {
 
 func sleepTimeSeconds() time.Duration {
 	return time.Duration(TIME_TO_SLEEP)
+}
+
+func checkForShutdownAndExit() {
+	for {
+		time.Sleep(SHUTDOWN_WAIT_CHECK * time.Second)
+		if inShutdownMode {
+			time.Sleep(sleepTimeSeconds() * time.Second)
+			os.Exit(CLEAN_SHUTDOWN_CODE)
+		}
+	}
+}
+
+func getIdPointerFromPath(path string) *int {
+	pathWithoutHash := strings.Replace(path, HASH_WITH_SLASH_ENDPOINT_NAME, "", 1)
+	i, err := strconv.Atoi(pathWithoutHash)
+	if err == nil {
+		return &i
+	}
+
+	return (*int)(nil)
+}
+
+func badRequestResponse(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusBadRequest)
 }
 
 func resetVariablesToStartingValues() { // TODO hack only used for testing
