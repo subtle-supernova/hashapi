@@ -6,7 +6,7 @@ import "strings"
 import "net/http"
 import "net/http/httptest"
 import "encoding/json"
-import "log"
+//import "log"
 
 func TestHashPassword(t *testing.T) {
 	expectedHash := "ZEHhWB65gUlzdVwtDQArEyx+KVLzp/aTaRaPlBzYRIFj6vjFdqEb0Q5B8zVKCZ0vKbZPZklJz0Fd7su2A+gf7Q=="
@@ -322,7 +322,6 @@ func TestStatisticsOneRequest(t *testing.T) {
 	if err := json.Unmarshal(body, &dat); err != nil {
 		t.Errorf("handler returned unexpected json: %v", bodyStr)
 	}
-	log.Print(dat)
 
 	expectedTotal := 1
 	unexpectedAverage := 0
