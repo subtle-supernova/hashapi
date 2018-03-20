@@ -1,3 +1,4 @@
+// This is a password hash struct.
 package main
 
 import "crypto/sha512"

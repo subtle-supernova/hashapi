@@ -1,3 +1,4 @@
+// This is a struct to capture statistics.
 package main
 
 import "sync"
