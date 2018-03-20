@@ -9,8 +9,7 @@ import "sync/atomic"
 import "strconv"
 import "strings"
 
-
-const TIME_TO_SLEEP = 5 
+const TIME_TO_SLEEP = 5
 const PASSWORD_PARAM_NAME = "password"
 
 const HASH_ENDPOINT_NAME = "/hash"
@@ -20,15 +19,14 @@ const STATS_ENDPOINT_NAME = "/stats"
 const CLEAN_SHUTDOWN_CODE = 0
 const SHUTDOWN_WAIT_CHECK = 1
 
-
 var inShutdownMode bool = false
 var hashId int32 = 0
-var seenPasswords map[int]Password
+var createdPasswords map[int]Password
 var stats Statistics
 
 func main() {
 
-	seenPasswords = make(map[int]Password)
+	createdPasswords = make(map[int]Password)
 	stats = *new(Statistics)
 
 	http.HandleFunc(HASH_ENDPOINT_NAME, hash)
@@ -59,13 +57,24 @@ func registerShutdown(w http.ResponseWriter, r *http.Request) {
 }
 
 func getIdPointerFromPath(path string) *int {
-	pathWithoutHash := strings.Replace(path, HASH_WITH_SLASH_ENDPOINT_NAME,"", 1)
+	pathWithoutHash := strings.Replace(path, HASH_WITH_SLASH_ENDPOINT_NAME, "", 1)
 	i, err := strconv.Atoi(pathWithoutHash)
-	if (err == nil) {
+	if err == nil {
 		return &i
 	}
 
 	return (*int)(nil)
+}
+
+func hashFromId(w http.ResponseWriter, id int) {
+	passwordStruct := createdPasswords[id]
+	if passwordStruct.Id == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	} else {
+		fmt.Fprintf(w, passwordStruct.PasswordHash)
+		return
+	}
 }
 
 func hash(w http.ResponseWriter, r *http.Request) {
@@ -79,40 +88,46 @@ func hash(w http.ResponseWriter, r *http.Request) {
 	id := 0
 
 	var idPtr = getIdPointerFromPath(r.URL.Path)
-	if (idPtr != (*int)(nil)) {
+	if idPtr != (*int)(nil) {
 		id = *idPtr
 	}
 
-	if (id != 0) {
-		passwordStruct := seenPasswords[id]
-		if (passwordStruct.Id == 0) {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		} else {
-
-			fmt.Fprintf(w, passwordStruct.PasswordHash)
-			captureStatistics(startNanos)
-			return
-		}
+	if r.Method == "GET" && id != 0 {
+		hashFromId(w, id)
+	} else if r.Method == "POST" && id == 0 {
+		hashIdAndCreate(startNanos, w, r)
+	} else {
+		badRequestResponse(w)
+		return
 	}
+}
+
+func badRequestResponse(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusBadRequest)
+}
+
+func hashIdAndCreate(startNanos int64, w http.ResponseWriter, r *http.Request) {
 
 	r.ParseForm()
 	password := r.FormValue(PASSWORD_PARAM_NAME)
-	if (password == "") {
-		w.WriteHeader(http.StatusBadRequest)
+	if password == "" {
+		badRequestResponse(w)
 		return
 	}
 
 	atomic.AddInt32(&hashId, 1)
 	fmt.Fprintln(w, hashId)
-	w.(http.Flusher).Flush()
+
+	go hashCreate(startNanos, hashId, password)
+}
+
+func hashCreate(startNanos int64, id int32, password string) {
 
 	time.Sleep(sleepTimeSeconds() * time.Second)
 	passwordObj := *new(Password)
 	passwordObj.hashPassword(password)
-	fmt.Fprintf(w, passwordObj.PasswordHash)
 	passwordObj.Id = int(hashId)
-	seenPasswords[passwordObj.Id] = passwordObj
+	createdPasswords[passwordObj.Id] = passwordObj
 
 	captureStatistics(startNanos)
 }
@@ -120,7 +135,7 @@ func hash(w http.ResponseWriter, r *http.Request) {
 func captureStatistics(startNanos int64) {
 	endNanos := time.Now().UnixNano()
 	stats.incrementTotal()
-	stats.incrementCumulativeTime(int((endNanos - startNanos)/1000000))
+	stats.incrementCumulativeTime(int((endNanos - startNanos) / 1000000))
 }
 
 func sleepTimeSeconds() time.Duration {
@@ -130,7 +145,7 @@ func sleepTimeSeconds() time.Duration {
 func resetVariablesToStartingValues() { // TODO hack only used for testing
 	inShutdownMode = false
 	hashId = 0
-	seenPasswords = make(map[int]Password)
-	stats = *new(Statistics)
+	createdPasswords = make(map[int]Password)
+	stats.Total = 0
+	stats.CumulativeTime = 0
 }
-
