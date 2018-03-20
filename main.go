@@ -16,6 +16,7 @@ const PASSWORD_PARAM_NAME = "password"
 const HASH_ENDPOINT_NAME = "/hash"
 const HASH_WITH_SLASH_ENDPOINT_NAME = "/hash/"
 const SHUTDOWN_ENDPOINT_NAME = "/shutdown"
+const STATS_ENDPOINT_NAME = "/stats"
 const CLEAN_SHUTDOWN_CODE = 0
 const SHUTDOWN_WAIT_CHECK = 1
 
@@ -36,6 +37,7 @@ func main() {
 	http.HandleFunc(HASH_ENDPOINT_NAME, hash)
 	http.HandleFunc(HASH_WITH_SLASH_ENDPOINT_NAME, hash)
 	http.HandleFunc(SHUTDOWN_ENDPOINT_NAME, registerShutdown)
+	http.HandleFunc(STATS_ENDPOINT_NAME, statisticsGet)
 
 	go checkForShutdownAndExit()
 	log.Fatal(http.ListenAndServe(":80", nil))
