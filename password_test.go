@@ -11,4 +11,3 @@ func TestHashPassword(t *testing.T) {
 		t.Errorf("Hash was incorrect, got: %s, want: %s.", hash, expectedHash)
 	}
 }
-

@@ -4,15 +4,15 @@ import "sync"
 import "encoding/json"
 
 type Statistics struct {
-	Total int
+	Total          int
 	CumulativeTime int
-	mux sync.Mutex
+	mux            sync.Mutex
 }
 
 func (s *Statistics) statsOutput() string {
 	total := s.Total
 	averageTime := 0
-	if (total != 0) {
+	if total != 0 {
 		averageTime = s.CumulativeTime / s.Total
 	}
 	statsMap := map[string]int{"total": total, "average": averageTime}

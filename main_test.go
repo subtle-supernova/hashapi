@@ -6,6 +6,7 @@ import "strings"
 import "net/http"
 import "net/http/httptest"
 import "encoding/json"
+
 //import "log"
 
 func TestStatsOutputEmpty(t *testing.T) {
@@ -14,7 +15,7 @@ func TestStatsOutputEmpty(t *testing.T) {
 	expected := `{"average":0,"total":0}`
 	if stat.statsOutput() != expected {
 		t.Errorf("handler returned unexpected body: got %v want %v",
-		stat.statsOutput(), expected)
+			stat.statsOutput(), expected)
 	}
 
 }
@@ -215,7 +216,7 @@ func TestStatisticsEmpty(t *testing.T) {
 	expected := `{"average":0,"total":0}`
 	if rr.Body.String() != expected {
 		t.Errorf("handler returned unexpected body: got %v want %v",
-		rr.Body.String(), expected)
+			rr.Body.String(), expected)
 	}
 
 }
@@ -227,7 +228,6 @@ func TestStatisticsOneRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 
 	req, err := http.NewRequest("GET", "/stats", nil)
 	if err != nil {
@@ -262,12 +262,11 @@ func TestStatisticsOneRequest(t *testing.T) {
 	unexpectedAverage := 0
 	if dat["total"] != expectedTotal {
 		t.Errorf("handler returned unexpected total: got %v want %v",
-		dat["total"], expectedTotal)
+			dat["total"], expectedTotal)
 	}
 	if dat["average"] == unexpectedAverage {
 		t.Errorf("handler returned unexpected avreage: got %v don't want %v",
-		dat["average"], unexpectedAverage)
+			dat["average"], unexpectedAverage)
 	}
 
 }
-
