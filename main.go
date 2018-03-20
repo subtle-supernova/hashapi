@@ -120,7 +120,7 @@ func getIdPointerFromPath(path string) *int {
 
 func hash(w http.ResponseWriter, r *http.Request) {
 	handlingAHashRequest = true // TODO this is wrong, need to update to lock it down better
-
+	startNanos := time.Now().UnixNano()
 
 	if inShutdownMode {
 		w.WriteHeader(http.StatusServiceUnavailable)
@@ -171,6 +171,9 @@ func hash(w http.ResponseWriter, r *http.Request) {
 		int32HashId,
 		hashedPassword,
 	}
+	endNanos := time.Now().UnixNano()
+	stats.incrementTotal()
+	stats.incrementCumulativeTime(int((endNanos - startNanos)/1000000))
 	handlingAHashRequest = false
 }
 

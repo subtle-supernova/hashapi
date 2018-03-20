@@ -136,9 +136,11 @@ func TestRegisterShutdown(t *testing.T) {
 	}
 }
 
-func TestHash(t *testing.T) {
+func TestHashA(t *testing.T) {
 	resetVariablesToStartingValues()
 	req, err := http.NewRequest("POST", "/hash", strings.NewReader("password=angryMonkey"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,6 +160,7 @@ func TestHash(t *testing.T) {
 func TestHashNoPassword(t *testing.T) {
 	resetVariablesToStartingValues()
 	req, err := http.NewRequest("POST", "/hash", strings.NewReader("pasword=angryMonkey"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,6 +186,7 @@ func TestHashAfterShutdown(t *testing.T) {
 	}
 
 	req, err := http.NewRequest("POST", "/hash", strings.NewReader("password=angryMonkey"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,6 +211,7 @@ func TestHashAfterShutdown(t *testing.T) {
 func TestHashWithRequestIdNotAlreadySet(t *testing.T) {
 	resetVariablesToStartingValues()
 	req, err := http.NewRequest("POST", "/hash/100", nil)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,6 +232,7 @@ func TestHashWithRequestIdNotAlreadySet(t *testing.T) {
 func TestHashWithRequestIdAlreadySet(t *testing.T) {
 	resetVariablesToStartingValues()
 	initialreq, err := http.NewRequest("POST", "/hash", strings.NewReader("password=angryMonkey"))
+	initialreq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -282,6 +288,7 @@ func TestStatisticsEmpty(t *testing.T) {
 func TestStatisticsOneRequest(t *testing.T) {
 	resetVariablesToStartingValues()
 	initialreq, err := http.NewRequest("POST", "/hash", strings.NewReader("password=angryMonkey"))
+	initialreq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if err != nil {
 		t.Fatal(err)
 	}
