@@ -7,7 +7,8 @@ import "net/http"
 import "net/http/httptest"
 import "encoding/json"
 
-//import "log"
+// import "log"
+
 
 func TestStatsOutputEmpty(t *testing.T) {
 	stat := *new(Statistics)
@@ -146,7 +147,7 @@ func TestHashAfterShutdown(t *testing.T) {
 
 func TestHashWithRequestIdNotAlreadySet(t *testing.T) {
 	resetVariablesToStartingValues()
-	req, err := http.NewRequest("POST", "/hash/100", nil)
+	req, err := http.NewRequest("GET", "/hash/100", nil)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if err != nil {
 		t.Fatal(err)
@@ -165,7 +166,7 @@ func TestHashWithRequestIdNotAlreadySet(t *testing.T) {
 
 }
 
-func TestHashWithRequestIdAlreadySet(t *testing.T) {
+func TestHashWithRequestIdAlreadySetButPasswordNotHashed(t *testing.T) {
 	resetVariablesToStartingValues()
 	initialreq, err := http.NewRequest("POST", "/hash", strings.NewReader("password=angryMonkey"))
 	initialreq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -178,11 +179,47 @@ func TestHashWithRequestIdAlreadySet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rr := httptest.NewRecorder()
+	initialrr := httptest.NewRecorder()
 	initialhandler := http.HandlerFunc(hash)
 
-	initialhandler.ServeHTTP(rr, initialreq)
+	initialhandler.ServeHTTP(initialrr, initialreq)
 
+	rr := httptest.NewRecorder()
+
+	handler := http.HandlerFunc(hash)
+
+	handler.ServeHTTP(rr, req)
+
+	expectedVal := http.StatusNotFound
+	if status := rr.Code; status != expectedVal {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, expectedVal)
+	}
+
+}
+
+func TestHashWithRequestIdAlreadySetPasswordHashed(t *testing.T) {
+	resetVariablesToStartingValues()
+	initialreq, err := http.NewRequest("POST", "/hash", strings.NewReader("password=angryMonkey"))
+	initialreq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest("GET", "/hash/1", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	initialrr := httptest.NewRecorder()
+	initialhandler := http.HandlerFunc(hash)
+
+	initialhandler.ServeHTTP(initialrr, initialreq)
+
+	// wait for password to be created
+	time.Sleep((1+sleepTimeSeconds()) * time.Second)
+
+	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(hash)
 
 	handler.ServeHTTP(rr, req)
@@ -229,6 +266,7 @@ func TestStatisticsOneRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 
+
 	req, err := http.NewRequest("GET", "/stats", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -238,6 +276,9 @@ func TestStatisticsOneRequest(t *testing.T) {
 	initialhandler := http.HandlerFunc(hash)
 
 	initialhandler.ServeHTTP(rr, initialreq)
+
+	// wait for password to be created
+	time.Sleep((1+sleepTimeSeconds()) * time.Second)
 
 	rrForStats := httptest.NewRecorder()
 	handler := http.HandlerFunc(statisticsGet)
@@ -270,3 +311,4 @@ func TestStatisticsOneRequest(t *testing.T) {
 	}
 
 }
+

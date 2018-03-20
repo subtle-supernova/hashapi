@@ -21,12 +21,12 @@ const SHUTDOWN_WAIT_CHECK = 1
 
 var inShutdownMode bool = false
 var hashId int32 = 0
-var seenPasswords map[int]Password
+var createdPasswords map[int]Password
 var stats Statistics
 
 func main() {
 
-	seenPasswords = make(map[int]Password)
+	createdPasswords = make(map[int]Password)
 	stats = *new(Statistics)
 
 	http.HandleFunc(HASH_ENDPOINT_NAME, hash)
@@ -66,15 +66,13 @@ func getIdPointerFromPath(path string) *int {
 	return (*int)(nil)
 }
 
-func hashFromId(startNanos int64, w http.ResponseWriter, id int) {
-	passwordStruct := seenPasswords[id]
+func hashFromId(w http.ResponseWriter, id int) {
+	passwordStruct := createdPasswords[id]
 	if passwordStruct.Id == 0 {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	} else {
-
 		fmt.Fprintf(w, passwordStruct.PasswordHash)
-		captureStatistics(startNanos)
 		return
 	}
 }
@@ -94,35 +92,46 @@ func hash(w http.ResponseWriter, r *http.Request) {
 		id = *idPtr
 	}
 
-	if id != 0 {
-		hashFromId(startNanos, w, id)
+	if r.Method == "GET" && id != 0 {
+		hashFromId(w, id)
+	} else if r.Method == "POST" && id == 0 {
+		hashIdAndCreate(startNanos, w, r)
 	} else {
-		hashCreate(startNanos, w, r)
+		badRequestResponse(w)
+		return
 	}
 }
 
-func hashCreate(startNanos int64, w http.ResponseWriter, r *http.Request) {
+func badRequestResponse(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusBadRequest)
+}
+
+func hashIdAndCreate(startNanos int64, w http.ResponseWriter, r *http.Request) {
 
 	r.ParseForm()
 	password := r.FormValue(PASSWORD_PARAM_NAME)
 	if password == "" {
-		w.WriteHeader(http.StatusBadRequest)
+		badRequestResponse(w)
 		return
 	}
 
 	atomic.AddInt32(&hashId, 1)
 	fmt.Fprintln(w, hashId)
-	w.(http.Flusher).Flush()
+
+	go hashCreate(startNanos, hashId, password)
+}
+
+func hashCreate(startNanos int64, id int32, password string) {
 
 	time.Sleep(sleepTimeSeconds() * time.Second)
 	passwordObj := *new(Password)
 	passwordObj.hashPassword(password)
 	passwordObj.Id = int(hashId)
-	seenPasswords[passwordObj.Id] = passwordObj
+	createdPasswords[passwordObj.Id] = passwordObj
 
-	// TODO should we capture both hash create requests and hash retrieval requests in the stats
 	captureStatistics(startNanos)
 }
+
 
 func captureStatistics(startNanos int64) {
 	endNanos := time.Now().UnixNano()
@@ -137,6 +146,7 @@ func sleepTimeSeconds() time.Duration {
 func resetVariablesToStartingValues() { // TODO hack only used for testing
 	inShutdownMode = false
 	hashId = 0
-	seenPasswords = make(map[int]Password)
-	stats = *new(Statistics)
+	createdPasswords = make(map[int]Password)
+	stats.Total = 0
+	stats.CumulativeTime = 0
 }
