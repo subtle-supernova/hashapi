@@ -10,8 +10,6 @@ import "os"
 import "sync/atomic"
 import "strconv"
 import "strings"
-import "encoding/json"
-import "sync"
 
 
 const TIME_TO_SLEEP = 5 //TODO change to 5
@@ -28,11 +26,6 @@ type PasswordInfo struct {
 	PasswordHash string
 }
 
-type Statistics struct {
-	Total int
-	CumulativeTime int
-	mux sync.Mutex
-}
 
 var inShutdownMode bool = false
 var handlingAHashRequest bool = false
@@ -77,29 +70,6 @@ func checkForShutdownAndExit() {
 
 func statisticsGet(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, stats.statsOutput())
-}
-
-func (s *Statistics) statsOutput() string {
-	total := s.Total
-	averageTime := 0
-	if (total != 0) {
-		averageTime = s.CumulativeTime / s.Total
-	}
-	statsMap := map[string]int{"total": total, "average": averageTime}
-	jsonMap, _ := json.Marshal(statsMap)
-	return string(jsonMap)
-}
-
-func (s *Statistics) incrementTotal() {
-	s.mux.Lock()
-	s.Total += 1
-	s.mux.Unlock()
-}
-
-func (s *Statistics) incrementCumulativeTime(timeInMilliseconds int) {
-	s.mux.Lock()
-	s.CumulativeTime += timeInMilliseconds
-	s.mux.Unlock()
 }
 
 func registerShutdown(w http.ResponseWriter, r *http.Request) {
