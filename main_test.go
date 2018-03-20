@@ -8,14 +8,6 @@ import "net/http/httptest"
 import "encoding/json"
 //import "log"
 
-func TestHashPassword(t *testing.T) {
-	expectedHash := "ZEHhWB65gUlzdVwtDQArEyx+KVLzp/aTaRaPlBzYRIFj6vjFdqEb0Q5B8zVKCZ0vKbZPZklJz0Fd7su2A+gf7Q=="
-	hash := hashPassword("angryMonkey")
-	if hash != expectedHash {
-		t.Errorf("Hash was incorrect, got: %s, want: %s.", hash, expectedHash)
-	}
-}
-
 func TestStatsOutputEmpty(t *testing.T) {
 	stat := *new(Statistics)
 

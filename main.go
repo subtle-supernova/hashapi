@@ -1,8 +1,6 @@
 package main
 
 import "fmt"
-import "crypto/sha512"
-import "encoding/base64"
 import "log"
 import "net/http"
 import "time"
@@ -21,23 +19,18 @@ const SHUTDOWN_ENDPOINT_NAME = "/shutdown"
 const CLEAN_SHUTDOWN_CODE = 0
 const SHUTDOWN_WAIT_CHECK = 1
 
-type PasswordInfo struct {
-	Id int
-	PasswordHash string
-}
-
 
 var inShutdownMode bool = false
 var handlingAHashRequest bool = false
 var hashId int32 = 0
-var seenPasswords map[int]PasswordInfo
+var seenPasswords map[int]Password
 var stats Statistics
 
 // TODO refactor, put some stuff into packages
 
 func main() {
 
-	seenPasswords = make(map[int]PasswordInfo)
+	seenPasswords = make(map[int]Password)
 	stats = *new(Statistics)
 
 	http.HandleFunc(HASH_ENDPOINT_NAME, hash)
@@ -52,7 +45,7 @@ func resetVariablesToStartingValues() { // TODO hack
 	inShutdownMode = false
 	handlingAHashRequest = false
 	hashId = 0
-	seenPasswords = make(map[int]PasswordInfo)
+	seenPasswords = make(map[int]Password)
 	stats = *new(Statistics)
 }
 
@@ -134,26 +127,18 @@ func hash(w http.ResponseWriter, r *http.Request) {
 	w.(http.Flusher).Flush()
 
 	time.Sleep(sleepTimeSeconds() * time.Second)
-	hashedPassword := hashPassword(password)
-	fmt.Fprintf(w, hashedPassword)
-	int32HashId := int(hashId)
-	seenPasswords[int32HashId] = PasswordInfo{
-		int32HashId,
-		hashedPassword,
-	}
+	passwordObj := *new(Password)
+	passwordObj.hashPassword(password)
+	fmt.Fprintf(w, passwordObj.PasswordHash)
+	passwordObj.Id = int(hashId)
+	seenPasswords[passwordObj.Id] = passwordObj
+
 	endNanos := time.Now().UnixNano()
 	stats.incrementTotal()
 	stats.incrementCumulativeTime(int((endNanos - startNanos)/1000000))
 	handlingAHashRequest = false
 }
 
-
-
-func hashPassword(passwd string) string {
-	hash := sha512.Sum512([]byte(passwd))
-
-	return base64.StdEncoding.EncodeToString(hash[:])
-}
 
 func sleepTimeSeconds() time.Duration {
 	return time.Duration(TIME_TO_SLEEP)
