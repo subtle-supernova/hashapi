@@ -1,3 +1,4 @@
+// This server hashes arbitrary passwords and provides statistics on how many password hash requests have been made. See https://github.com/mooreds/hashapi for more info
 package main
 
 import "fmt"
