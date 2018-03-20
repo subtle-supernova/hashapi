@@ -52,15 +52,6 @@ func TestGetIdFromPathWithNoVal(t *testing.T) {
 	}
 }
 
-func TestNewShutdownValue(t *testing.T) {
-
-	expectedVal := true
-	val := newShutdownValue()
-	if val != expectedVal {
-		t.Errorf("Val was incorrect, got: %s, want: %s.", val, expectedVal)
-	}
-}
-
 func TestRegisterShutdown(t *testing.T) {
 	resetVariablesToStartingValues()
 	req, err := http.NewRequest("GET", "/shutdown", nil)

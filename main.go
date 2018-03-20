@@ -10,7 +10,7 @@ import "strconv"
 import "strings"
 
 
-const TIME_TO_SLEEP = 5 //TODO change to 5
+const TIME_TO_SLEEP = 5 
 const PASSWORD_PARAM_NAME = "password"
 
 const HASH_ENDPOINT_NAME = "/hash"
@@ -22,12 +22,9 @@ const SHUTDOWN_WAIT_CHECK = 1
 
 
 var inShutdownMode bool = false
-var handlingAHashRequest bool = false
 var hashId int32 = 0
 var seenPasswords map[int]Password
 var stats Statistics
-
-// TODO refactor, put some stuff into packages
 
 func main() {
 
@@ -43,21 +40,11 @@ func main() {
 	log.Fatal(http.ListenAndServe(":80", nil))
 }
 
-func resetVariablesToStartingValues() { // TODO hack
-	inShutdownMode = false
-	handlingAHashRequest = false
-	hashId = 0
-	seenPasswords = make(map[int]Password)
-	stats = *new(Statistics)
-}
-
 func checkForShutdownAndExit() {
 	for {
 		time.Sleep(SHUTDOWN_WAIT_CHECK * time.Second)
 		if inShutdownMode {
-			if handlingAHashRequest {
-				time.Sleep(sleepTimeSeconds() * time.Second)
-			}
+			time.Sleep(sleepTimeSeconds() * time.Second)
 			os.Exit(CLEAN_SHUTDOWN_CODE)
 		}
 	}
@@ -68,12 +55,11 @@ func statisticsGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func registerShutdown(w http.ResponseWriter, r *http.Request) {
-	inShutdownMode = newShutdownValue()
+	inShutdownMode = true
 }
 
 func getIdPointerFromPath(path string) *int {
-	pathWithoutHash := strings.Replace(path, HASH_ENDPOINT_NAME+"/","", 1)
-	// TODO make this more robust nad handle garbage after the endpoint?
+	pathWithoutHash := strings.Replace(path, HASH_WITH_SLASH_ENDPOINT_NAME,"", 1)
 	i, err := strconv.Atoi(pathWithoutHash)
 	if (err == nil) {
 		return &i
@@ -82,9 +68,7 @@ func getIdPointerFromPath(path string) *int {
 	return (*int)(nil)
 }
 
-
 func hash(w http.ResponseWriter, r *http.Request) {
-	handlingAHashRequest = true // TODO this is wrong, need to update to lock it down better
 	startNanos := time.Now().UnixNano()
 
 	if inShutdownMode {
@@ -93,9 +77,6 @@ func hash(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := 0
-
-// TODO stats should include any hashes returnbed, but not 404 errors
-// Use this: https://tour.golang.org/concurrency/9
 
 	var idPtr = getIdPointerFromPath(r.URL.Path)
 	if (idPtr != (*int)(nil)) {
@@ -110,12 +91,10 @@ func hash(w http.ResponseWriter, r *http.Request) {
 		} else {
 
 			fmt.Fprintf(w, passwordStruct.PasswordHash)
+			captureStatistics(startNanos)
 			return
 		}
 	}
-
-	// TODO for the same password value we give different ids.
-
 
 	r.ParseForm()
 	password := r.FormValue(PASSWORD_PARAM_NAME)
@@ -135,17 +114,23 @@ func hash(w http.ResponseWriter, r *http.Request) {
 	passwordObj.Id = int(hashId)
 	seenPasswords[passwordObj.Id] = passwordObj
 
+	captureStatistics(startNanos)
+}
+
+func captureStatistics(startNanos int64) {
 	endNanos := time.Now().UnixNano()
 	stats.incrementTotal()
 	stats.incrementCumulativeTime(int((endNanos - startNanos)/1000000))
-	handlingAHashRequest = false
 }
-
 
 func sleepTimeSeconds() time.Duration {
 	return time.Duration(TIME_TO_SLEEP)
 }
 
-func newShutdownValue() bool {
-	return true
+func resetVariablesToStartingValues() { // TODO hack only used for testing
+	inShutdownMode = false
+	hashId = 0
+	seenPasswords = make(map[int]Password)
+	stats = *new(Statistics)
 }
+
