@@ -9,7 +9,6 @@ import "encoding/json"
 
 // import "log"
 
-
 func TestStatsOutputEmpty(t *testing.T) {
 	stat := *new(Statistics)
 
@@ -217,7 +216,7 @@ func TestHashWithRequestIdAlreadySetPasswordHashed(t *testing.T) {
 	initialhandler.ServeHTTP(initialrr, initialreq)
 
 	// wait for password to be created
-	time.Sleep((1+sleepTimeSeconds()) * time.Second)
+	time.Sleep((1 + sleepTimeSeconds()) * time.Second)
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(hash)
@@ -266,7 +265,6 @@ func TestStatisticsOneRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-
 	req, err := http.NewRequest("GET", "/stats", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -278,7 +276,7 @@ func TestStatisticsOneRequest(t *testing.T) {
 	initialhandler.ServeHTTP(rr, initialreq)
 
 	// wait for password to be created
-	time.Sleep((1+sleepTimeSeconds()) * time.Second)
+	time.Sleep((1 + sleepTimeSeconds()) * time.Second)
 
 	rrForStats := httptest.NewRecorder()
 	handler := http.HandlerFunc(statisticsGet)
@@ -311,4 +309,3 @@ func TestStatisticsOneRequest(t *testing.T) {
 	}
 
 }
-

@@ -132,7 +132,6 @@ func hashCreate(startNanos int64, id int32, password string) {
 	captureStatistics(startNanos)
 }
 
-
 func captureStatistics(startNanos int64) {
 	endNanos := time.Now().UnixNano()
 	stats.incrementTotal()
