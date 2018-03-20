@@ -7,7 +7,7 @@ This is a go server that will hash a password using SHA 512.
 
 ## Startup
 
-To run the server on ubuntu: `sudo go run main.go`
+To run the server on ubuntu: `sudo go run main.go password.go statistics.go`
 
 You must start it as root because it binds to port 80, a privileged port. 
 

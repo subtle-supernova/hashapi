@@ -1,8 +1,6 @@
 package main
 
 import "fmt"
-import "crypto/sha512"
-import "encoding/base64"
 import "log"
 import "net/http"
 import "time"
@@ -11,62 +9,57 @@ import "sync/atomic"
 import "strconv"
 import "strings"
 
-const TIME_TO_SLEEP = 5 //TODO change to 5
+
+const TIME_TO_SLEEP = 5 
 const PASSWORD_PARAM_NAME = "password"
 
 const HASH_ENDPOINT_NAME = "/hash"
 const HASH_WITH_SLASH_ENDPOINT_NAME = "/hash/"
 const SHUTDOWN_ENDPOINT_NAME = "/shutdown"
+const STATS_ENDPOINT_NAME = "/stats"
+const CLEAN_SHUTDOWN_CODE = 0
+const SHUTDOWN_WAIT_CHECK = 1
 
-type PasswordInfo struct {
-	Id int
-	PasswordHash string
-}
 
 var inShutdownMode bool = false
-var handlingAHashRequest bool = false
 var hashId int32 = 0
-var seenPasswords map[int]PasswordInfo
-
+var seenPasswords map[int]Password
+var stats Statistics
 
 func main() {
 
-	seenPasswords = make(map[int]PasswordInfo)
+	seenPasswords = make(map[int]Password)
+	stats = *new(Statistics)
 
 	http.HandleFunc(HASH_ENDPOINT_NAME, hash)
 	http.HandleFunc(HASH_WITH_SLASH_ENDPOINT_NAME, hash)
 	http.HandleFunc(SHUTDOWN_ENDPOINT_NAME, registerShutdown)
+	http.HandleFunc(STATS_ENDPOINT_NAME, statisticsGet)
 
 	go checkForShutdownAndExit()
 	log.Fatal(http.ListenAndServe(":80", nil))
 }
 
-func resetVariablesToStartingValues() { // TODO hack
-	inShutdownMode = false
-	handlingAHashRequest = false
-	hashId = 0
-	seenPasswords = make(map[int]PasswordInfo)
-}
-
 func checkForShutdownAndExit() {
 	for {
-		time.Sleep(1 * time.Second)
+		time.Sleep(SHUTDOWN_WAIT_CHECK * time.Second)
 		if inShutdownMode {
-			if handlingAHashRequest {
-				time.Sleep(sleepTimeSeconds() * time.Second)
-			}
-			os.Exit(0)
+			time.Sleep(sleepTimeSeconds() * time.Second)
+			os.Exit(CLEAN_SHUTDOWN_CODE)
 		}
 	}
 }
 
+func statisticsGet(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, stats.statsOutput())
+}
+
 func registerShutdown(w http.ResponseWriter, r *http.Request) {
-	inShutdownMode = newShutdownValue()
+	inShutdownMode = true
 }
 
 func getIdPointerFromPath(path string) *int {
-	pathWithoutHash := strings.Replace(path, HASH_ENDPOINT_NAME+"/","", 1)
-	// TODO make this more robust nad handle garbage after the endpoint?
+	pathWithoutHash := strings.Replace(path, HASH_WITH_SLASH_ENDPOINT_NAME,"", 1)
 	i, err := strconv.Atoi(pathWithoutHash)
 	if (err == nil) {
 		return &i
@@ -75,9 +68,8 @@ func getIdPointerFromPath(path string) *int {
 	return (*int)(nil)
 }
 
-
 func hash(w http.ResponseWriter, r *http.Request) {
-	handlingAHashRequest = true
+	startNanos := time.Now().UnixNano()
 
 	if inShutdownMode {
 		w.WriteHeader(http.StatusServiceUnavailable)
@@ -97,44 +89,48 @@ func hash(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		} else {
+
 			fmt.Fprintf(w, passwordStruct.PasswordHash)
+			captureStatistics(startNanos)
 			return
 		}
 	}
 
-	// TODO for the same password value we give different ids.
+	r.ParseForm()
+	password := r.FormValue(PASSWORD_PARAM_NAME)
+	if (password == "") {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	atomic.AddInt32(&hashId, 1)
 	fmt.Fprintln(w, hashId)
 	w.(http.Flusher).Flush()
 
-	r.ParseForm()
-	password := r.FormValue(PASSWORD_PARAM_NAME)
-	// TODO what if we don't see password?
-
 	time.Sleep(sleepTimeSeconds() * time.Second)
-	hashedPassword := hashPassword(password)
-	fmt.Fprintf(w, hashedPassword)
-	int32HashId := int(hashId)
-	seenPasswords[int32HashId] = PasswordInfo{
-		int32HashId,
-		hashedPassword,
-	}
-	handlingAHashRequest = false
+	passwordObj := *new(Password)
+	passwordObj.hashPassword(password)
+	fmt.Fprintf(w, passwordObj.PasswordHash)
+	passwordObj.Id = int(hashId)
+	seenPasswords[passwordObj.Id] = passwordObj
+
+	captureStatistics(startNanos)
 }
 
-
-
-func hashPassword(passwd string) string {
-	hash := sha512.Sum512([]byte(passwd))
-
-	return base64.StdEncoding.EncodeToString(hash[:])
+func captureStatistics(startNanos int64) {
+	endNanos := time.Now().UnixNano()
+	stats.incrementTotal()
+	stats.incrementCumulativeTime(int((endNanos - startNanos)/1000000))
 }
 
 func sleepTimeSeconds() time.Duration {
 	return time.Duration(TIME_TO_SLEEP)
 }
 
-func newShutdownValue() bool {
-	return true
+func resetVariablesToStartingValues() { // TODO hack only used for testing
+	inShutdownMode = false
+	hashId = 0
+	seenPasswords = make(map[int]Password)
+	stats = *new(Statistics)
 }
+

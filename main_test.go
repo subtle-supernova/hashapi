@@ -5,14 +5,18 @@ import "time"
 import "strings"
 import "net/http"
 import "net/http/httptest"
+import "encoding/json"
+//import "log"
 
+func TestStatsOutputEmpty(t *testing.T) {
+	stat := *new(Statistics)
 
-func TestHashPassword(t *testing.T) {
-	expectedHash := "ZEHhWB65gUlzdVwtDQArEyx+KVLzp/aTaRaPlBzYRIFj6vjFdqEb0Q5B8zVKCZ0vKbZPZklJz0Fd7su2A+gf7Q=="
-	hash := hashPassword("angryMonkey")
-	if hash != expectedHash {
-		t.Errorf("Hash was incorrect, got: %s, want: %s.", hash, expectedHash)
+	expected := `{"average":0,"total":0}`
+	if stat.statsOutput() != expected {
+		t.Errorf("handler returned unexpected body: got %v want %v",
+		stat.statsOutput(), expected)
 	}
+
 }
 
 func TestSleepTimeSeconds(t *testing.T) {
@@ -48,15 +52,6 @@ func TestGetIdFromPathWithNoVal(t *testing.T) {
 	}
 }
 
-func TestNewShutdownValue(t *testing.T) {
-
-	expectedVal := true
-	val := newShutdownValue()
-	if val != expectedVal {
-		t.Errorf("Val was incorrect, got: %s, want: %s.", val, expectedVal)
-	}
-}
-
 func TestRegisterShutdown(t *testing.T) {
 	resetVariablesToStartingValues()
 	req, err := http.NewRequest("GET", "/shutdown", nil)
@@ -76,9 +71,11 @@ func TestRegisterShutdown(t *testing.T) {
 	}
 }
 
-func TestHash(t *testing.T) {
+func TestHashA(t *testing.T) {
 	resetVariablesToStartingValues()
 	req, err := http.NewRequest("POST", "/hash", strings.NewReader("password=angryMonkey"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,6 +86,26 @@ func TestHash(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 
 	expectedVal := http.StatusOK
+	if status := rr.Code; status != expectedVal {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, expectedVal)
+	}
+}
+
+func TestHashNoPassword(t *testing.T) {
+	resetVariablesToStartingValues()
+	req, err := http.NewRequest("POST", "/hash", strings.NewReader("pasword=angryMonkey"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(hash)
+
+	handler.ServeHTTP(rr, req)
+
+	expectedVal := http.StatusBadRequest
 	if status := rr.Code; status != expectedVal {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, expectedVal)
@@ -104,6 +121,7 @@ func TestHashAfterShutdown(t *testing.T) {
 	}
 
 	req, err := http.NewRequest("POST", "/hash", strings.NewReader("password=angryMonkey"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,6 +146,7 @@ func TestHashAfterShutdown(t *testing.T) {
 func TestHashWithRequestIdNotAlreadySet(t *testing.T) {
 	resetVariablesToStartingValues()
 	req, err := http.NewRequest("POST", "/hash/100", nil)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,6 +167,7 @@ func TestHashWithRequestIdNotAlreadySet(t *testing.T) {
 func TestHashWithRequestIdAlreadySet(t *testing.T) {
 	resetVariablesToStartingValues()
 	initialreq, err := http.NewRequest("POST", "/hash", strings.NewReader("password=angryMonkey"))
+	initialreq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,3 +193,81 @@ func TestHashWithRequestIdAlreadySet(t *testing.T) {
 	}
 
 }
+
+func TestStatisticsEmpty(t *testing.T) {
+	resetVariablesToStartingValues()
+	req, err := http.NewRequest("GET", "/stats", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(statisticsGet)
+
+	handler.ServeHTTP(rr, req)
+
+	expectedVal := http.StatusOK
+	if status := rr.Code; status != expectedVal {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, expectedVal)
+	}
+
+	expected := `{"average":0,"total":0}`
+	if rr.Body.String() != expected {
+		t.Errorf("handler returned unexpected body: got %v want %v",
+		rr.Body.String(), expected)
+	}
+
+}
+
+func TestStatisticsOneRequest(t *testing.T) {
+	resetVariablesToStartingValues()
+	initialreq, err := http.NewRequest("POST", "/hash", strings.NewReader("password=angryMonkey"))
+	initialreq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+
+	req, err := http.NewRequest("GET", "/stats", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	initialhandler := http.HandlerFunc(hash)
+
+	initialhandler.ServeHTTP(rr, initialreq)
+
+	rrForStats := httptest.NewRecorder()
+	handler := http.HandlerFunc(statisticsGet)
+
+	handler.ServeHTTP(rrForStats, req)
+
+	expectedVal := http.StatusOK
+	if status := rr.Code; status != expectedVal {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, expectedVal)
+	}
+
+	var dat map[string]int
+	bodyStr := rrForStats.Body.String()
+	body := []byte(bodyStr)
+
+	if err := json.Unmarshal(body, &dat); err != nil {
+		t.Errorf("handler returned unexpected json: %v", bodyStr)
+	}
+
+	expectedTotal := 1
+	unexpectedAverage := 0
+	if dat["total"] != expectedTotal {
+		t.Errorf("handler returned unexpected total: got %v want %v",
+		dat["total"], expectedTotal)
+	}
+	if dat["average"] == unexpectedAverage {
+		t.Errorf("handler returned unexpected avreage: got %v don't want %v",
+		dat["average"], unexpectedAverage)
+	}
+
+}
+
