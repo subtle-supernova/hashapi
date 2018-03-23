@@ -7,6 +7,7 @@ import "net/http"
 import "time"
 import "os"
 import "sync/atomic"
+import "sync"
 import "strconv"
 import "strings"
 
@@ -22,12 +23,18 @@ const SHUTDOWN_WAIT_CHECK = 1
 
 var inShutdownMode bool = false
 var hashId int32 = 0
-var createdPasswords map[int]Password
 var stats Statistics
+
+type PasswordHash struct {
+	Hashes          map[int]Password
+	mux            sync.Mutex
+}
+
+var hashes PasswordHash
 
 func main() {
 
-	createdPasswords = make(map[int]Password)
+	hashes.Hashes = make(map[int]Password)
 	stats = *new(Statistics)
 
 	http.HandleFunc(HASH_ENDPOINT_NAME, hash)
@@ -73,7 +80,9 @@ func hash(w http.ResponseWriter, r *http.Request) {
 }
 
 func hashFromId(w http.ResponseWriter, id int) {
-	passwordStruct := createdPasswords[id]
+	hashes.mux.Lock()
+	passwordStruct := hashes.Hashes[id]
+	hashes.mux.Unlock()
 	if passwordStruct.Id == 0 {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -92,10 +101,10 @@ func hashIdAndCreate(startNanos int64, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	atomic.AddInt32(&hashId, 1)
-	fmt.Fprintln(w, hashId)
+	newId := atomic.AddInt32(&hashId, 1)
+	fmt.Fprintln(w, newId)
 
-	go hashCreate(startNanos, hashId, password)
+	go hashCreate(startNanos, newId, password)
 }
 
 func hashCreate(startNanos int64, id int32, password string) {
@@ -103,8 +112,10 @@ func hashCreate(startNanos int64, id int32, password string) {
 
 	passwordObj := *new(Password)
 	passwordObj.hashPassword(password)
-	passwordObj.Id = int(hashId)
-	createdPasswords[passwordObj.Id] = passwordObj
+	passwordObj.Id = int(id)
+	hashes.mux.Lock()
+	hashes.Hashes[passwordObj.Id] = passwordObj
+	hashes.mux.Unlock()
 
 	captureStatistics(startNanos)
 }
@@ -146,7 +157,7 @@ func badRequestResponse(w http.ResponseWriter) {
 func resetVariablesToStartingValues() { // TODO hack only used for testing
 	inShutdownMode = false
 	hashId = 0
-	createdPasswords = make(map[int]Password)
+	hashes.Hashes = make(map[int]Password)
 	stats.Total = 0
 	stats.CumulativeTime = 0
 }
