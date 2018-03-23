@@ -26,8 +26,8 @@ var hashId int32 = 0
 var stats Statistics
 
 type PasswordHash struct {
-	Hashes          map[int]Password
-	mux            sync.Mutex
+	Hashes map[int]Password
+	mux    sync.Mutex
 }
 
 var hashes PasswordHash
