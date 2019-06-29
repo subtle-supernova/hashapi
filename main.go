@@ -1,4 +1,5 @@
-// This server hashes arbitrary passwords and provides statistics on how many password hash requests have been made. See https://github.com/mooreds/hashapi for more info
+// This server hashes arbitrary passwords and provides statistics on how many password hash requests have been made.
+// See https://github.com/mooreds/hashapi for more info
 package main
 
 import "fmt"
@@ -32,6 +33,14 @@ type PasswordHash struct {
 
 var hashes PasswordHash
 
+func findPort() string {
+	port, exists := os.LookupEnv("HASHAPI_PORT")
+	if exists {
+		return ":" + port
+	}
+	return ":8888"
+}
+
 func main() {
 
 	hashes.Hashes = make(map[int]Password)
@@ -43,7 +52,9 @@ func main() {
 	http.HandleFunc(STATS_ENDPOINT_NAME, statisticsGet)
 
 	go checkForShutdownAndExit()
-	log.Fatal(http.ListenAndServe(":80", nil))
+	port := findPort()
+	log.Println("Starting server on " + port + "...")
+	log.Fatal(http.ListenAndServe(findPort(), nil))
 }
 
 func statisticsGet(w http.ResponseWriter, r *http.Request) {
@@ -64,8 +75,8 @@ func hash(w http.ResponseWriter, r *http.Request) {
 
 	id := 0
 
-	var idPtr = getIdPointerFromPath(r.URL.Path)
-	if idPtr != (*int)(nil) {
+	idPtr, err := getIdPointerFromPath(r.URL.Path)
+	if err == nil {
 		id = *idPtr
 	}
 
@@ -140,14 +151,14 @@ func checkForShutdownAndExit() {
 	}
 }
 
-func getIdPointerFromPath(path string) *int {
+func getIdPointerFromPath(path string) (*int, error) {
 	pathWithoutHash := strings.Replace(path, HASH_WITH_SLASH_ENDPOINT_NAME, "", 1)
 	i, err := strconv.Atoi(pathWithoutHash)
 	if err == nil {
-		return &i
+		return &i, nil
 	}
 
-	return (*int)(nil)
+	return nil, err
 }
 
 func badRequestResponse(w http.ResponseWriter) {
