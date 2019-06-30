@@ -32,24 +32,24 @@ func TestSleepTimeSeconds(t *testing.T) {
 func TestGetIdFromPathWithVal(t *testing.T) {
 
 	expectedVal := 100
-	val := getIdPointerFromPath("/hash/100")
-	if val == (*int)(nil) {
-		t.Errorf("Val was incorrect, got: nil, want: %s.", expectedVal)
+	val, err := getIdPointerFromPath("/hash/100")
+	if err != nil {
+		t.Errorf("Val was incorrect, got: nil, want: %v.", expectedVal)
 		return
 	}
 
 	dereferencedVal := *val
 	if dereferencedVal != expectedVal {
-		t.Errorf("Val was incorrect, got: %s, want: %s.", dereferencedVal, expectedVal)
+		t.Errorf("Val was incorrect, got: %v, want: %v.", dereferencedVal, expectedVal)
 	}
 }
 
 func TestGetIdFromPathWithNoVal(t *testing.T) {
 
 	expectedVal := (*int)(nil)
-	val := getIdPointerFromPath("/hash")
+	val, _ := getIdPointerFromPath("/hash")
 	if val != expectedVal {
-		t.Errorf("Val was incorrect, got: %s, want: %s.", val, expectedVal)
+		t.Errorf("Val was incorrect, got: %v, want: %v.", val, expectedVal)
 	}
 }
 
