@@ -2,15 +2,17 @@
 // See https://github.com/mooreds/hashapi for more info
 package main
 
-import "fmt"
-import "log"
-import "net/http"
-import "time"
-import "os"
-import "sync/atomic"
-import "sync"
-import "strconv"
-import "strings"
+import (
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+)
 
 const TIME_TO_SLEEP = 5
 const PASSWORD_PARAM_NAME = "password"
@@ -26,12 +28,7 @@ var inShutdownMode bool = false
 var hashId int32 = 0
 var stats Statistics
 
-type PasswordHash struct {
-	Hashes map[int]Password
-	mux    sync.Mutex
-}
-
-var hashes PasswordHash
+var concurrentPaswordHash sync.Map
 
 func findPort() string {
 	port, exists := os.LookupEnv("HASHAPI_PORT")
@@ -43,8 +40,8 @@ func findPort() string {
 
 func main() {
 
-	hashes.Hashes = make(map[int]Password)
 	stats = *new(Statistics)
+	concurrentPaswordHash = *new(sync.Map)
 
 	http.HandleFunc(HASH_ENDPOINT_NAME, hash)
 	http.HandleFunc(HASH_WITH_SLASH_ENDPOINT_NAME, hash)
@@ -91,14 +88,13 @@ func hash(w http.ResponseWriter, r *http.Request) {
 }
 
 func hashFromId(w http.ResponseWriter, id int) {
-	hashes.mux.Lock()
-	passwordStruct := hashes.Hashes[id]
-	hashes.mux.Unlock()
-	if passwordStruct.Id == 0 {
+	concurrentPasswordStruct, ok := concurrentPaswordHash.Load(id)
+	if !ok {
+		log.Println(fmt.Sprintf("Nothing found for id %v", id))
 		w.WriteHeader(http.StatusNotFound)
 		return
 	} else {
-		fmt.Fprintf(w, passwordStruct.PasswordHash)
+		fmt.Fprintf(w, concurrentPasswordStruct.(Password).PasswordHash)
 		return
 	}
 }
@@ -124,9 +120,7 @@ func hashCreate(startNanos int64, id int32, password string) {
 	passwordObj := *new(Password)
 	passwordObj.hashPassword(password)
 	passwordObj.Id = int(id)
-	hashes.mux.Lock()
-	hashes.Hashes[passwordObj.Id] = passwordObj
-	hashes.mux.Unlock()
+	concurrentPaswordHash.Store(passwordObj.Id, passwordObj)
 
 	captureStatistics(startNanos)
 }
@@ -146,6 +140,7 @@ func checkForShutdownAndExit() {
 		time.Sleep(SHUTDOWN_WAIT_CHECK * time.Second)
 		if inShutdownMode {
 			time.Sleep(sleepTimeSeconds() * time.Second)
+			log.Println("Shutting down the server")
 			os.Exit(CLEAN_SHUTDOWN_CODE)
 		}
 	}
@@ -168,7 +163,6 @@ func badRequestResponse(w http.ResponseWriter) {
 func resetVariablesToStartingValues() { // TODO hack only used for testing
 	inShutdownMode = false
 	hashId = 0
-	hashes.Hashes = make(map[int]Password)
 	stats.Total = 0
 	stats.CumulativeTime = 0
 }
